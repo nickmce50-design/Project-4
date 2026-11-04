@@ -1,9 +1,9 @@
 extends Area2D
 
 @export_multiline var dialog: Array[String] = [
-	"Hello",
-	"Thank you for defeating the Dragon and Saving me",
-	"Lets get back to the Kingdom",
+	"Why did you kill the dragon?",
+	"he was my best friend",
+	"Leave now and don't come back",
 ]
 
 @onready var label: Label = $Label
