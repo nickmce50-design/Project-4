@@ -7,7 +7,11 @@
 [ext_resource type="Script" uid="uid://dvfqb05jjgloe" path="res://New folder/enemy_1.gd" id="4_rj586"]
 [ext_resource type="Texture2D" uid="uid://chp0n2q0o2hc6" path="res://brackeys_platformer_assets/sprites/knight.png" id="5_i5it8"]
 [ext_resource type="Script" uid="uid://ch61v6t5au8xa" path="res://New folder/lava.gd" id="6_kdubu"]
+[ext_resource type="Script" uid="uid://dpf45052n71pn" path="res://New folder/ms_1.gd" id="6_t4b27"]
+[ext_resource type="Script" uid="uid://bo454wnrvaq8h" path="res://New folder/npcinter_1.gd" id="7_c2slu"]
 [ext_resource type="Texture2D" uid="uid://buwq15dpvhb5o" path="res://brackeys_platformer_assets/sprites/slime_green.png" id="7_t4b27"]
+[ext_resource type="Texture2D" uid="uid://dy0ssdwn1pbw8" path="res://Tiny RPG Character Asset Pack 01 v2.0 -Free Soldier&Orc/Characters(100x100 split)/Soldier/Soldier/Soldier.png" id="8_isshd"]
+[ext_resource type="Script" uid="uid://c3nv55ekeex73" path="res://New folder/npcinter_2.gd" id="9_7vndb"]
 [ext_resource type="Texture2D" uid="uid://c3k0n2aryp3in" path="res://PORTAL BLUE-Sheet.png" id="10_bsidh"]
 [ext_resource type="Script" uid="uid://bfhomd1cj0gy4" path="res://New folder/spikes.gd" id="10_ir8iy"]
 [ext_resource type="Script" uid="uid://x3tgygm6p2jn" path="res://New folder/fake_portal.gd" id="11_hqns4"]
@@ -246,6 +250,23 @@ animations = [{
 "speed": 5.0
 }]
 
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_r7al8"]
+size = Vector2(112, 39)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_gt42f"]
+size = Vector2(50, 46)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_c601w"]
+atlas = ExtResource("8_isshd")
+region = Rect2(238.65285, 536.07074, 21.310043, 22.56189)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_3xua5"]
+size = Vector2(53, 44)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_n2p3v"]
+atlas = ExtResource("8_isshd")
+region = Rect2(34.597168, 32.628723, 31.046097, 26.699646)
+
 [sub_resource type="AtlasTexture" id="AtlasTexture_t4b27"]
 atlas = ExtResource("7_t4b27")
 region = Rect2(29.474308, 34.5608, 12.769997, 13.849152)
@@ -263,7 +284,7 @@ size = Vector2(846, 48.5)
 size = Vector2(799, 32)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_n2p3v"]
-size = Vector2(24, 284)
+size = Vector2(24, 601)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_fream"]
 size = Vector2(31.375, 80)
@@ -477,6 +498,24 @@ region = Rect2(128.66895, 16.283098, 14.9999695, 15.253443)
 atlas = ExtResource("2_rj586")
 region = Rect2(128.38742, 0.089876175, 15.345444, 6.6229324)
 
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_bbkf2"]
+size = Vector2(3933, 34)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_3xutc"]
+size = Vector2(389.25, 150.25)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_o6y7c"]
+size = Vector2(565, 152.5)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_4fecy"]
+size = Vector2(560.5, 184.5)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_6y62h"]
+size = Vector2(585.5, 203.5)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_cb3ir"]
+size = Vector2(387, 87)
+
 [node name="Level One" type="Node2D" unique_id=1000072013]
 position = Vector2(-4, 0)
 script = ExtResource("1_d21ai")
@@ -499,21 +538,86 @@ collision_mask = 3
 script = ExtResource("1_0e48y")
 
 [node name="Camera2D" type="Camera2D" parent="player" unique_id=2099448283]
-position = Vector2(366, -138)
+position = Vector2(92, -136)
 offset = Vector2(-100, 0)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="player" unique_id=1170667346]
-position = Vector2(-96, -14)
+position = Vector2(-271, -13)
 shape = SubResource("RectangleShape2D_v7vt1")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="player" unique_id=212889579]
-position = Vector2(-92.375, -17.999994)
+position = Vector2(-272, -17.999994)
 scale = Vector2(1.2499998, 1.4999996)
 sprite_frames = SubResource("SpriteFrames_kgfsy")
 animation = &"new_animation"
+frame = 3
+frame_progress = 0.6629573
+speed_scale = 0.5
+
+[node name="MS1" type="Area2D" parent="." unique_id=1812029839]
+position = Vector2(-450, 247)
+script = ExtResource("6_t4b27")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="MS1" unique_id=997557547]
+position = Vector2(-255, 19.5)
+shape = SubResource("RectangleShape2D_r7al8")
+
+[node name="Label" type="Label" parent="MS1" unique_id=1719913239]
+offset_left = -387.0
+offset_top = -172.0
+offset_right = -99.0
+offset_bottom = -45.0
+text = "Welcome!!!
+Use WAD or Arrow Keys to move
+Use E to interact
+
+Collect the Keys and Enter
+the portal to make it to the next level"
+
+[node name="NPCINTER1" type="Area2D" parent="." unique_id=2064652790]
+position = Vector2(-837, 75)
+script = ExtResource("7_c2slu")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NPCINTER1" unique_id=400037308]
+position = Vector2(290, 187)
+shape = SubResource("RectangleShape2D_gt42f")
+
+[node name="Sprite2D" type="Sprite2D" parent="NPCINTER1/CollisionShape2D" unique_id=2104764165]
+position = Vector2(15, 11)
+scale = Vector2(1.1190476, 1.1590909)
+texture = SubResource("AtlasTexture_c601w")
+flip_h = true
+
+[node name="Label" type="Label" parent="NPCINTER1" unique_id=2120870844]
+offset_left = 27.0
+offset_top = 67.0
+offset_right = 334.0
+offset_bottom = 142.0
+
+[node name="NPCINTER2" type="Area2D" parent="." unique_id=237245170]
+position = Vector2(96, -19)
+script = ExtResource("9_7vndb")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NPCINTER2" unique_id=111228594]
+position = Vector2(116.5, 283)
+shape = SubResource("RectangleShape2D_3xua5")
+
+[node name="Sprite2D" type="Sprite2D" parent="NPCINTER2/CollisionShape2D" unique_id=463727792]
+position = Vector2(0.5, 7.5)
+scale = Vector2(1.032258, 1.1923077)
+texture = SubResource("AtlasTexture_n2p3v")
+flip_h = true
+
+[node name="Label" type="Label" parent="NPCINTER2" unique_id=1545081274]
+offset_left = 42.0
+offset_right = 82.0
+offset_bottom = 23.0
+
+[node name="NPCINTER3" type="Area2D" parent="NPCINTER2" unique_id=1412859033]
+position = Vector2(2265, 143)
 
 [node name="enemy1" type="CharacterBody2D" parent="." unique_id=1310578983]
-position = Vector2(-423, -3)
+position = Vector2(-423, -4)
 script = ExtResource("4_rj586")
 
 [node name="Sprite2D" type="Sprite2D" parent="enemy1" unique_id=638797627]
@@ -550,7 +654,7 @@ shape = SubResource("RectangleShape2D_ir8iy")
 position = Vector2(-360, 128)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Barrier" unique_id=467809302]
-position = Vector2(-413, 66)
+position = Vector2(-413, -92.5)
 shape = SubResource("RectangleShape2D_n2p3v")
 
 [node name="tower" type="StaticBody2D" parent="." unique_id=314817084]
@@ -824,7 +928,7 @@ texture = SubResource("AtlasTexture_kgfsy")
 position = Vector2(2379, 179)
 
 [node name="Marker2D" type="Marker2D" parent="Level2" unique_id=1919568274]
-position = Vector2(25, 1)
+position = Vector2(222, -32)
 
 [node name="walls and such" type="StaticBody2D" parent="." unique_id=199503610]
 position = Vector2(2514, 17)
@@ -1058,6 +1162,44 @@ position = Vector2(0, 9.5)
 scale = Vector2(1, 1.0507813)
 texture = SubResource("AtlasTexture_knlr6")
 
+[node name="Lv 3 floor" type="StaticBody2D" parent="." unique_id=228126040]
+position = Vector2(6274, 304)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Lv 3 floor" unique_id=1852425029]
+position = Vector2(1956.5, 7)
+shape = SubResource("RectangleShape2D_bbkf2")
+
+[node name="CollisionShape2D2" type="CollisionShape2D" parent="Lv 3 floor" unique_id=1574748532]
+position = Vector2(276.375, -975.125)
+shape = SubResource("RectangleShape2D_3xutc")
+
+[node name="CollisionShape2D3" type="CollisionShape2D" parent="Lv 3 floor" unique_id=661076099]
+position = Vector2(3663, -1042)
+shape = SubResource("RectangleShape2D_o6y7c")
+
+[node name="CollisionShape2D4" type="CollisionShape2D" parent="Lv 3 floor" unique_id=911532275]
+position = Vector2(797, -502)
+shape = SubResource("RectangleShape2D_4fecy")
+
+[node name="CollisionShape2D5" type="CollisionShape2D" parent="Lv 3 floor" unique_id=31380022]
+position = Vector2(2932, -498)
+shape = SubResource("RectangleShape2D_6y62h")
+
+[node name="CollisionShape2D6" type="CollisionShape2D" parent="Lv 3 floor" unique_id=655847400]
+position = Vector2(2076.5, -1592.5)
+shape = SubResource("RectangleShape2D_cb3ir")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=2091488284]
+z_index = -3
+position = Vector2(200.00002, 1028)
+scale = Vector2(4.496528, 3.824074)
+
+[connection signal="body_entered" from="MS1" to="MS1" method="_on_body_entered"]
+[connection signal="body_exited" from="MS1" to="MS1" method="_on_body_exited"]
+[connection signal="body_entered" from="NPCINTER1" to="NPCINTER1" method="_on_body_entered"]
+[connection signal="body_exited" from="NPCINTER1" to="NPCINTER1" method="_on_body_exited"]
+[connection signal="body_entered" from="NPCINTER2" to="NPCINTER2" method="_on_body_entered"]
+[connection signal="body_exited" from="NPCINTER2" to="NPCINTER2" method="_on_body_exited"]
 [connection signal="body_entered" from="enemy1/Area2D" to="enemy1" method="_on_area_2d_body_entered"]
 [connection signal="body_entered" from="lava" to="lava" method="_on_body_entered"]
 [connection signal="body_entered" from="Spikes" to="Spikes" method="_on_body_entered"]

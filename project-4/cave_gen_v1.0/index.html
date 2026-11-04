@@ -1,0 +1,1413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CAVE/GEN — procedural pixel cavern generator</title>
+<!-- favicon: "Underground cave" by Delapouite, game-icons.net, CC BY 3.0 -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='72' fill='%23e6ceac'/%3E%3Cpath fill='%23292418' d='M25 25v94.1c29.99.1 62.76-.7 90.3 21.3l2.6 2 24.7 122.3 31.7-151.4 11 7.2c23.2 15.1 41.4 9.7 58.8-.3l11.4-6.6 15.8 103.9 19.5-92.2 17.6-.2 17.8 74.9 12.7-112.32 13.6 19.92c8.3 12.1 14.5 21.1 20.6 26.7 5.4 5 10.6 7.7 18.9 8.7 13.4-8.4 27.8-20.7 44.4-30.1 14.6-8.4 31.7-14.23 50.6-11.9V25H25zm417.6 338.7c-12 10.6-25.5 26.2-39.7 41.6-16.5 17.8-33.7 35.2-53.9 42.3l-3.2 1.1-3.2-1.3c-32.5-13.1-72.9-11.6-115.6-6.5l-2.5.3-2.3-1c-26.1-11.8-42.9-23-75.3-34.2-7 12.3-16.4 23.4-27.2 30.8-6.4 4.4-13.4 7.6-20.86 8.5-7.47 1-15.51-.7-22.15-5.5-10.43-7.5-20.87-18-31.23-25.6-7.49-5.4-14.3-8.8-20.46-9.7V487h462v-37.2c-5.1-12.7-12.2-31.1-20.8-48.7-7.2-14.9-15.8-28.8-23.6-37.4z'/%3E%3C/svg%3E">
+<style>
+:root{
+  /* JustParchment8 — lospec.com/palette-list/justparchment8 */
+  --paper:#e6ceac; --panel:#cdba94; --ink:#292418;
+  --muted:#524839; --rule:#8b7d62; --accent:#292418; --accent-ink:#e6ceac;
+  --bad:#292418;
+  --radius:2px;
+  color-scheme:light dark;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#292418; --panel:#524839; --ink:#e6ceac;
+    --muted:#cdba94; --rule:#73654a; --accent:#e6ceac; --accent-ink:#292418;
+    --bad:#e6ceac;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#292418; --panel:#524839; --ink:#e6ceac;
+  --muted:#cdba94; --rule:#73654a; --accent:#e6ceac; --accent-ink:#292418;
+  --bad:#e6ceac;
+}
+*,*::before,*::after{box-sizing:border-box}
+a{color:var(--accent);text-underline-offset:2px}
+html,body{height:100%}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:"Archivo","Helvetica Neue",Arial,sans-serif;font-size:14px;line-height:1.5;
+  font-feature-settings:"tnum" 1;-webkit-text-size-adjust:100%;overflow:hidden}
+.mono,.tab,.val,.chips button,.kbd{
+  font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+
+.app{display:grid;grid-template-columns:minmax(0,1fr) 330px;height:100vh;height:100dvh}
+
+/* margin:auto on the child, not justify/align-content: centred content that
+   overflows stays reachable in both directions, which centring does not */
+main.stagewrap{position:relative;overflow:auto;padding:20px;display:flex;overscroll-behavior:contain}
+main.stagewrap.canpan{cursor:grab}
+main.stagewrap.grabbing{cursor:grabbing}
+main.stagewrap.grabbing *{pointer-events:none}
+.stage{margin:auto;padding:0;flex:none;line-height:0}
+canvas{display:block;height:auto;image-rendering:pixelated;image-rendering:crisp-edges}
+
+aside.rail{display:flex;flex-direction:column;min-height:0;
+  border-left:1px solid var(--rule);background:var(--panel)}
+nav.tabs{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--rule);flex:none}
+.tab{font-size:12px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;
+  background:transparent;color:var(--muted);border:none;border-bottom:2px solid transparent;
+  padding:12px 2px 10px;cursor:pointer;border-radius:0}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+.tabbody{flex:1 1 auto;min-height:0;overflow-y:auto;padding:14px 14px 20px}
+.pane{display:none}
+.pane.on{display:block}
+
+.railfoot{flex:none;border-top:1px solid var(--rule);padding:9px 14px 12px;background:var(--panel)}
+.status{font-size:12px;color:var(--muted);min-height:1.35em;line-height:1.35;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.status.err{color:var(--bad);font-weight:600;white-space:normal}
+
+.group{margin:0 0 16px}
+.group:last-child{margin-bottom:0}
+.grouphead{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--muted);margin:0 0 9px;padding-bottom:6px;
+  border-bottom:1px solid var(--rule)}
+summary.grouphead{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;
+  list-style:none;margin-bottom:0}
+summary.grouphead::-webkit-details-marker{display:none}
+summary.grouphead::before{content:"";width:0;height:0;flex:none;
+  border-left:4px solid currentColor;border-top:3.5px solid transparent;border-bottom:3.5px solid transparent;
+  transform:translateY(.5px)}
+details[open]>summary.grouphead::before{border-left:3.5px solid transparent;border-right:3.5px solid transparent;
+  border-top:4px solid currentColor;border-bottom:0;transform:none}
+summary.grouphead:hover{color:var(--ink)}
+details.group[open]>summary.grouphead{margin-bottom:9px}
+
+.infobtn{position:absolute;top:14px;left:14px;z-index:3;
+  width:27px;height:27px;padding:0;border-radius:50%;
+  /* opaque: on a narrow screen the canvas fills the pane and sits underneath */
+  background:var(--paper);color:var(--muted);border:1px solid var(--rule);
+  font-family:Georgia,"Times New Roman",serif;font-style:italic;font-size:15px;font-weight:700;line-height:1}
+.infobtn:hover{color:var(--accent);border-color:var(--accent);opacity:1}
+
+dialog.about{max-width:min(640px,calc(100vw - 32px));width:100%;padding:0;border:1px solid var(--rule);
+  border-radius:var(--radius);background:var(--panel);color:var(--ink);
+  max-height:min(86vh,860px);overflow:auto}
+dialog.about::backdrop{background:rgba(41,36,24,.66)}
+.about-in{padding:20px 24px 26px}
+.about h2{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:17px;letter-spacing:.06em;
+  margin:0;font-weight:700}
+.about h2 span{color:var(--accent)}
+.about header{display:flex;align-items:flex-start;gap:14px}
+.about header div p{margin:3px 0 0;font-size:12.5px;color:var(--muted)}
+.about header button{margin-left:auto;flex:none}
+.about h3{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--muted);margin:22px 0 8px;padding-bottom:6px;
+  border-bottom:1px solid var(--rule)}
+.about p{margin:0 0 9px;font-size:13px;line-height:1.55;max-width:62ch}
+.about p:last-child{margin-bottom:0}
+.about b{font-weight:600}
+.about a{color:var(--accent)}
+.about ol,.about ul{margin:0;padding-left:18px;max-width:62ch}
+.about ol+p,.about ul+p{margin-top:12px}
+.about li{font-size:13px;line-height:1.55;margin-bottom:7px}
+.about li:last-child{margin-bottom:0}
+.about li b{color:var(--ink)}
+.about .keys{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--muted);margin-top:2px}
+.ctl{margin-bottom:11px}
+.ctl:last-child{margin-bottom:0}
+.ctl .row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.ctl label{font-size:12.5px;font-weight:500}
+.ctl .val{font-size:12px;color:var(--accent);min-width:3.2em;text-align:right}
+.ctl .hint{display:block;font-size:12px;color:var(--muted);margin-top:3px;line-height:1.35}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:16px;background:transparent;margin:3px 0 0}
+input[type=range]::-webkit-slider-runnable-track{height:3px;background:var(--rule);border-radius:2px}
+input[type=range]::-moz-range-track{height:3px;background:var(--rule);border-radius:2px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;margin-top:-5px;
+  background:var(--accent);border:none;border-radius:1px;cursor:pointer}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;background:var(--accent);border:none;border-radius:1px;cursor:pointer}
+select,input[type=text],input[type=number],textarea{width:100%;margin-top:4px;padding:6px 8px;font:inherit;font-size:12.5px;
+  background:var(--paper);color:var(--ink);border:1px solid var(--rule);border-radius:var(--radius)}
+textarea{resize:vertical;min-height:56px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.45}
+button{font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;background:var(--ink);color:var(--paper);
+  border:none;border-radius:var(--radius);padding:7px 10px}
+button.ghost{background:transparent;color:var(--ink);border:1px solid var(--ink)}
+button.thin{background:transparent;color:var(--ink);border:1px solid var(--rule);font-weight:500}
+button.thin:hover{border-color:var(--accent);color:var(--accent)}
+button:hover{opacity:.87}
+button:disabled{opacity:.45;cursor:default}
+.btnrow{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.btnrow button{flex:1;white-space:nowrap}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chips button{font-size:12px;padding:5px 7px;background:transparent;color:var(--ink);
+  border:1px solid var(--rule);font-weight:500}
+.chips button:hover{border-color:var(--accent);color:var(--accent)}
+.check{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:500;cursor:pointer;margin-top:7px}
+.check input{accent-color:var(--accent);width:15px;height:15px;margin:0;flex:none}
+.swatches{display:flex;flex-wrap:wrap;margin-top:7px;border:1px solid var(--rule);min-height:18px}
+.swatches i{flex:1 0 8px;height:17px}
+.palmeta{font-size:12px;color:var(--muted);margin-top:5px;display:flex;justify-content:space-between;gap:8px}
+.palmeta a{color:var(--accent)}
+.inline{display:flex;gap:6px;align-items:stretch;margin-top:4px}
+.inline input{margin-top:0}
+.inline button{flex:none}
+.note{font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.45}
+.note:last-child{margin-bottom:0}
+.note b{color:var(--ink);font-weight:600}
+.note a{color:var(--accent)}
+.kbd{font-size:12px;border:1px solid var(--rule);border-bottom-width:2px;border-radius:2px;padding:0 4px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Narrow and portrait — a phone held upright. Only here is stacking worth it:
+   the rail drops under the canvas and the page scrolls as one column. */
+@media (max-width:880px) and (orientation:portrait){
+  body{overflow:auto}
+  .app{grid-template-columns:1fr;height:auto;min-height:100%}
+  main.stagewrap{padding:12px;max-height:78vh}
+  aside.rail{border-left:none;border-top:1px solid var(--rule)}
+  .tabbody{overflow:visible}
+  nav.tabs{position:sticky;top:0;background:var(--panel);z-index:2}
+  .railfoot{position:sticky;bottom:0;z-index:2}
+}
+/* Narrow and landscape — a phone held sideways. Height is the scarce axis, so
+   the rail stays on the right and gives up width instead. */
+@media (max-width:880px) and (orientation:landscape){
+  .app{grid-template-columns:minmax(0,1fr) clamp(210px,40vw,300px)}
+  main.stagewrap{padding:10px}
+  .infobtn{top:8px;left:8px;width:24px;height:24px;font-size:13px}
+  .tab{padding:9px 1px 8px;letter-spacing:.01em}
+  .tabbody{padding:10px 11px 14px}
+  .railfoot{padding:7px 11px 9px}
+  .btnrow{gap:5px;margin-top:8px}
+  .railfoot button{padding:6px 6px}
+  .group{margin-bottom:13px}
+  .grid2{gap:5px}
+  .about-in{padding:14px 16px 18px}
+  .about h3{margin:15px 0 7px}
+}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+<main class="stagewrap">
+  <button class="infobtn" id="bAbout" title="About CAVE/GEN (i)" aria-label="About">i</button>
+  <figure class="stage">
+    <canvas id="cv" width="640" height="360"></canvas>
+  </figure>
+</main>
+
+<aside class="rail">
+  <nav class="tabs" role="tablist">
+    <button class="tab" id="tb-look"   data-tab="look"   role="tab" aria-selected="true"  aria-controls="pane-look">Look</button>
+    <button class="tab" id="tb-shape"  data-tab="shape"  role="tab" aria-selected="false" aria-controls="pane-shape">Shape</button>
+    <button class="tab" id="tb-light"  data-tab="light"  role="tab" aria-selected="false" aria-controls="pane-light">Light</button>
+    <button class="tab" id="tb-canvas" data-tab="canvas" role="tab" aria-selected="false" aria-controls="pane-canvas">Canvas</button>
+  </nav>
+
+  <div class="tabbody">
+
+    <!-- ============ LOOK ============ -->
+    <section class="pane on" id="pane-look" role="tabpanel" aria-labelledby="tb-look">
+      <details class="group" id="g-presets">
+        <summary class="grouphead">Presets</summary>
+        <div class="grid2" id="presets">
+          <button class="thin" data-preset="blue">Blue chamber</button>
+          <button class="thin" data-preset="brown">Brown chamber</button>
+          <button class="thin" data-preset="crystal">Crystal</button>
+          <button class="thin" data-preset="lava">Lava</button>
+        </div>
+        <div class="btnrow"><button id="bRandom">Random</button></div>
+        <div class="ctl" style="margin-top:11px"><label for="view">View</label>
+          <select id="view">
+            <option value="final">Final</option>
+            <option value="nodither">Palette, no dither</option>
+            <option value="nopal">Continuous, no palette</option>
+            <option value="layers">Layer index</option>
+          </select></div>
+      </details>
+
+      <details class="group" id="g-palette">
+        <summary class="grouphead">Palette</summary>
+        <div class="ctl"><label for="palSel">Active palette</label>
+          <select id="palSel"></select>
+          <div class="swatches" id="palSw"></div>
+          <div class="palmeta"><span id="palInfo"></span><span id="palSrc"></span></div>
+        </div>
+        <div class="ctl"><label for="lospec">Import from <a href="https://lospec.com/palette-list" target="_blank" rel="noopener">Lospec</a></label>
+          <div class="inline">
+            <input type="text" id="lospec" autocomplete="off" placeholder="slug or a full URL" spellcheck="false">
+            <button class="thin" id="bLospec">Get</button>
+          </div>
+        </div>
+        <div class="ctl"><label for="palPaste">or paste hex</label>
+          <textarea id="palPaste" autocomplete="off" spellcheck="false" placeholder="#10141f #364a5f #6b8ba3&#10;or one hex per line"></textarea>
+          <div class="inline">
+            <input type="text" id="palName" autocomplete="off" placeholder="palette name" spellcheck="false">
+            <button class="thin" id="bPaste">Add</button>
+          </div>
+        </div>
+        <label class="check"><input type="checkbox" id="palSort" checked> Sort by luminance</label>
+        <label class="check"><input type="checkbox" id="palInv"> Invert ramp</label>
+        <div class="ctl" style="margin-top:11px"><div class="row"><label for="palGamma">Ramp curve</label><span class="val"></span></div>
+          <input type="range" id="palGamma" min="0.4" max="2.2" step="0.02" value="1">
+          <span class="hint">Bends value→colour. Below 1 favours the light end, above 1 the dark end.</span></div>
+        <div class="btnrow"><button class="thin" id="bDelPal">Remove imported</button></div>
+      </details>
+
+      <details class="group" id="g-dither">
+        <summary class="grouphead">Dither</summary>
+        <div class="ctl"><label for="dMode">Mode</label>
+          <select id="dMode">
+            <option value="bayer">Ordered (Bayer)</option>
+            <option value="noise">White noise</option>
+            <option value="checker">Checker 50%</option>
+            <option value="none">None (hard bands)</option>
+          </select></div>
+        <div class="ctl"><div class="row"><label for="dMat">Matrix</label><span class="val"></span></div>
+          <input type="range" id="dMat" min="0" max="2" step="1" value="1"></div>
+        <div class="ctl"><div class="row"><label for="dStr">Strength</label><span class="val"></span></div>
+          <input type="range" id="dStr" min="0" max="2" step="0.05" value="0.85">
+        </div>
+      </details>
+    </section>
+
+    <!-- ============ SHAPE ============ -->
+    <section class="pane" id="pane-shape" role="tabpanel" aria-labelledby="tb-shape">
+      <details class="group" id="g-seed">
+        <summary class="grouphead">Seed</summary>
+        <div class="inline">
+          <input type="number" id="seed" autocomplete="off" min="0" step="1" value="0" aria-label="seed">
+          <button class="thin" id="bSeed" title="Random seed">⟳</button>
+        </div>
+      </details>
+      <details class="group" id="g-silhouette">
+        <summary class="grouphead">Silhouette</summary>
+        <div class="ctl"><div class="row"><label for="sLayers">Depth layers</label><span class="val"></span></div>
+          <input type="range" id="sLayers" min="2" max="7" step="1" value="4"></div>
+        <div class="ctl"><div class="row"><label for="sApW">Arch width</label><span class="val"></span></div>
+          <input type="range" id="sApW" min="0.5" max="1.25" step="0.01" value="0.86"></div>
+        <div class="ctl"><div class="row"><label for="sApH">Arch height</label><span class="val"></span></div>
+          <input type="range" id="sApH" min="0.4" max="1.2" step="0.01" value="0.82"></div>
+        <div class="ctl"><div class="row"><label for="sConv">Convergence</label><span class="val"></span></div>
+          <input type="range" id="sConv" min="0" max="0.7" step="0.01" value="0.3">
+        </div>
+        <div class="ctl"><div class="row"><label for="sRough">Wall roughness</label><span class="val"></span></div>
+          <input type="range" id="sRough" min="0" max="1.6" step="0.02" value="0.8"></div>
+      </details>
+      <details class="group" id="g-formations">
+        <summary class="grouphead">Formations</summary>
+        <div class="ctl"><div class="row"><label for="sStalLen">Stalactite length</label><span class="val"></span></div>
+          <input type="range" id="sStalLen" min="0" max="40" step="1" value="17"></div>
+        <div class="ctl"><div class="row"><label for="sStalN">Stalactite density</label><span class="val"></span></div>
+          <input type="range" id="sStalN" min="0" max="40" step="1" value="16"></div>
+        <div class="ctl"><div class="row"><label for="sStagLen">Stalagmite length</label><span class="val"></span></div>
+          <input type="range" id="sStagLen" min="0" max="34" step="1" value="10"></div>
+        <div class="ctl"><div class="row"><label for="sFloor">Foreground floor</label><span class="val"></span></div>
+          <input type="range" id="sFloor" min="0" max="0.30" step="0.01" value="0.10"></div>
+      </details>
+    </section>
+
+    <!-- ============ LIGHT ============ -->
+    <section class="pane" id="pane-light" role="tabpanel" aria-labelledby="tb-light">
+      <details class="group" id="g-depth">
+        <summary class="grouphead">Depth</summary>
+        <div class="ctl"><div class="row"><label for="lNear">Near darkness</label><span class="val"></span></div>
+          <input type="range" id="lNear" min="0" max="0.35" step="0.01" value="0.04"></div>
+        <div class="ctl"><div class="row"><label for="lFar">Far haze</label><span class="val"></span></div>
+          <input type="range" id="lFar" min="0.15" max="0.95" step="0.01" value="0.62">
+        </div>
+        <div class="ctl"><div class="row"><label for="lRim">Rim light</label><span class="val"></span></div>
+          <input type="range" id="lRim" min="0" max="1" step="0.02" value="0.42"></div>
+        <div class="ctl"><div class="row"><label for="lDetail">Surface detail</label><span class="val"></span></div>
+          <input type="range" id="lDetail" min="0" max="1" step="0.02" value="0.34"></div>
+      </details>
+      <details class="group" id="g-light-source">
+        <summary class="grouphead">Light source</summary>
+        <div class="ctl"><label for="lMode">Type</label>
+          <select id="lMode"><option value="none">Ambient only</option><option value="crystal">Crystal cluster</option><option value="pool">Lava pool</option></select></div>
+        <div class="ctl"><div class="row"><label for="lInt">Intensity</label><span class="val"></span></div>
+          <input type="range" id="lInt" min="0" max="1.4" step="0.02" value="0.8"></div>
+        <div class="ctl"><div class="row"><label for="lRad">Radius</label><span class="val"></span></div>
+          <input type="range" id="lRad" min="0.03" max="0.6" step="0.005" value="0.18"></div>
+        <div class="ctl"><div class="row"><label for="lX">Position x</label><span class="val"></span></div>
+          <input type="range" id="lX" min="0" max="1" step="0.01" value="0.5"></div>
+        <div class="ctl"><div class="row"><label for="lY">Position y</label><span class="val"></span></div>
+          <input type="range" id="lY" min="0" max="1" step="0.01" value="0.55"></div>
+      </details>
+    </section>
+
+    <!-- ============ CANVAS ============ -->
+    <section class="pane" id="pane-canvas" role="tabpanel" aria-labelledby="tb-canvas">
+      <details class="group" id="g-size">
+        <summary class="grouphead">Size</summary>
+        <div class="ctl"><label>Canvas pixels</label>
+          <div class="grid2">
+            <input type="number" id="cvW" autocomplete="off" min="16" max="1024" step="1" value="640" aria-label="width">
+            <input type="number" id="cvH" autocomplete="off" min="16" max="1024" step="1" value="360" aria-label="height">
+          </div>
+          <div class="chips" id="sizePresets">
+            <button data-size="288x162">288×162</button>
+            <button data-size="320x180">320×180</button>
+            <button data-size="384x216">384×216</button>
+            <button data-size="480x270">480×270</button>
+            <button data-size="256x256">256×256</button>
+            <button data-size="160x144">160×144</button>
+            <button data-size="640x360">640×360</button>
+          </div>
+        </div>
+        <div class="ctl"><div class="row"><label for="pxSize">Pixel size</label><span class="val"></span></div>
+          <span class="hint" id="gridInfo" style="margin-top:6px"></span>
+          <input type="range" id="pxSize" min="1" max="8" step="1" value="1">
+        </div>
+        <div class="ctl"><div class="row"><label for="zoom">Preview zoom</label><span class="val"></span></div>
+          <div class="inline">
+            <input type="range" id="zoom" min="1" max="8" step="1" value="1" style="margin-top:9px">
+            <button class="thin" id="bFit" title="Largest zoom that fits the window">Fit</button>
+          </div>
+          <span class="hint">Preview only. You can use mouse to pan or <span class="kbd">Ctrl</span> and scroll to zoom.</span></div>
+      </details>
+      <details class="group" id="g-parameters">
+        <summary class="grouphead">Parameters</summary>
+        <div class="ctl">
+          <span class="hint">Drop a saved JSON anywhere on the page to load it.</span>
+          <div class="btnrow">
+            <button class="thin" id="bParamSave">Export JSON</button>
+            <button class="thin" id="bParamLoad">Import JSON</button>
+          </div>
+          <div class="btnrow">
+            <button class="thin" id="bParamCopy">Copy to clipboard</button>
+            <button class="thin" id="bParamReset">Reset</button>
+          </div>
+          <input type="file" id="paramFile" accept="application/json,.json" hidden>
+        </div>
+      </details>
+      <details class="group" id="g-export">
+        <summary class="grouphead">Image export</summary>
+        <div class="ctl"><label for="expScale">PNG scale</label>
+          <select id="expScale">
+            <option value="0">Match canvas</option>
+            <option value="1">1× grid (smallest)</option>
+            <option value="2">2× grid</option>
+            <option value="3">3× grid</option>
+            <option value="4">4× grid</option>
+            <option value="6">6× grid</option>
+            <option value="8">8× grid</option>
+          </select></div>
+      </details>
+    </section>
+
+  </div>
+
+  <div class="railfoot">
+    <div class="status" id="status"></div>
+    <div class="btnrow">
+      <button id="bNew">New cave</button>
+      <button class="ghost" id="bPng">Save PNG</button>
+      <button class="thin" id="bOpen" style="flex:0 0 auto" title="Open the PNG in a new tab">↗</button>
+    </div>
+  </div>
+</aside>
+</div>
+
+<dialog class="about" id="about" aria-labelledby="aboutTitle">
+  <div class="about-in">
+    <header>
+      <div>
+        <h2 id="aboutTitle">CAVE<span>+</span>GEN</h2>
+        <p>Side-view procedural cavern generator with postprocessing</p>
+      </div>
+      <button class="thin" id="bAboutClose" aria-label="Close">Close</button>
+    </header>
+
+    <h3>What this is</h3>
+    <p>This project generates images showing a side view of the cave. It was created while I was messing around with different assets for the background of one of my projects. </p>
+    
+    <h3>Keys</h3>
+    <p class="keys">
+      <span><span class="kbd">R</span> new cave</span>
+      <span><span class="kbd">S</span> save PNG</span>
+      <span><span class="kbd">1</span>–<span class="kbd">4</span> presets</span>
+      <span><span class="kbd">5</span> random</span>
+      <span><span class="kbd">Tab</span> cycle panels</span>
+      <span><span class="kbd">I</span> this panel</span>
+      <span><span class="kbd">Esc</span> close</span>
+    </p>
+
+    <h3>The panels</h3>
+    <ul>
+      <li><b>Look</b> — presets, the palette, the dither.</li>
+      <li><b>Shape</b> — cavern generation parameters.</li>
+      <li><b>Light</b> — light source parameters.</li>
+      <li><b>Canvas</b> — canvas size and export parameters.</li>
+    </ul>
+
+    <h3>Palettes</h3>
+    <p>Import straight from
+      <a href="https://lospec.com/palette-list" target="_blank" rel="noopener">lospec.com</a> with a
+      slug or a full URL, or paste a hex list.</p>
+    <p>Additional checkboxes allow you to <b>Sort by luminance</b>, and <b>Ramp curve</b> changes the
+      value-to-colour mapping when a palette's steps are unevenly spaced. You can also name your palette to load next time you generate a cave.</p>
+
+    <h3>Saving a setup</h3>
+    <p>The Canvas panel exports all parameters as one JSON file. Use it to pass the configs around, or save with the image.
+      <b>Reset</b> returns everything to the defaults.</p>
+
+    <h3>Credits</h3>
+    <p>Icon <a href="https://game-icons.net/1x1/delapouite/underground-cave.html" target="_blank" rel="noopener">Underground cave</a>
+      by <a href="https://delapouite.com" target="_blank" rel="noopener">Delapouite</a> from
+      <a href="https://game-icons.net" target="_blank" rel="noopener">game-icons.net</a>, used under
+      <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a>.</p>
+    <p>Interface palette <a href="https://lospec.com/palette-list/justparchment8" target="_blank" rel="noopener">JustParchment8</a>
+      by JustJimmy. Palette import courtesy of <a href="https://lospec.com/palette-list" target="_blank" rel="noopener">Lospec</a>.</p>
+    <h3>AI usage disclosure</h3><p>The code was produced with Claude Code assistance. No generative AI was used to create any of the assets.</p>
+  </div>
+</dialog>
+
+<script>
+"use strict";
+
+/* ===================== noise ===================== */
+function ihash(x,y,s){
+  let h = Math.imul(x|0,374761393) ^ Math.imul(y|0,668265263) ^ Math.imul(s|0,1274126177);
+  h = Math.imul(h ^ (h>>>13), 1274126177);
+  h ^= h>>>16;
+  return (h>>>0)/4294967295;
+}
+const wrap=(a,b)=>((a%b)+b)%b;
+const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
+const smooth=t=>t*t*(3-2*t);
+function vnoise(x,y,P,seed){
+  const xi=Math.floor(x), yi=Math.floor(y);
+  const u=smooth(x-xi), v=smooth(y-yi);
+  const x0=wrap(xi,P),x1=wrap(xi+1,P),y0=wrap(yi,P),y1=wrap(yi+1,P);
+  const a=ihash(x0,y0,seed),b=ihash(x1,y0,seed),c=ihash(x0,y1,seed),d=ihash(x1,y1,seed);
+  return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v;
+}
+function fbm(x,y,P,seed,oct,gain,ridged){
+  let sum=0,amp=1,norm=0,f=1;
+  for(let i=0;i<oct;i++){
+    let n=vnoise(x*f,y*f,Math.max(1,Math.round(P*f)),seed+i*101);
+    if(ridged){ n=1-Math.abs(n*2-1); n*=n; }
+    sum+=n*amp; norm+=amp; amp*=gain; f*=2;
+  }
+  return sum/norm;
+}
+function voronoi(x,y,P,seed){
+  const cx=Math.floor(x),cy=Math.floor(y);
+  let f1=9,f2=9,id=0;
+  for(let j=-1;j<=1;j++) for(let i=-1;i<=1;i++){
+    const gx=cx+i,gy=cy+j,wx=wrap(gx,P),wy=wrap(gy,P);
+    const px=gx+ihash(wx,wy,seed),py=gy+ihash(wx,wy,seed+7);
+    const dx=px-x, dy=py-y, d=Math.sqrt(dx*dx+dy*dy);
+    if(d<f1){f2=f1;f1=d;id=ihash(wx,wy,seed+13);} else if(d<f2){f2=d;}
+  }
+  return {f1,f2,id};
+}
+function bayerM(n){
+  if(n===1) return [[0]];
+  const s=bayerM(n/2),m=[];
+  for(let y=0;y<n;y++){m.push([]);for(let x=0;x<n;x++){
+    const q=(y<n/2?0:2)+(x<n/2?0:1), o=[0,2,3,1][q];
+    m[y][x]=s[y%(n/2)][x%(n/2)]*4+o;
+  }}
+  return m;
+}
+const BAYER={2:bayerM(2),4:bayerM(4),8:bayerM(8)};
+
+/* ===================== palette layer ===================== */
+const BUILTIN={
+  "Slate blue":["#05080b","#0d1318","#1a2429","#2c3a43","#44575f","#65808c","#93aeba","#c6dce4"],
+  "Umber":["#020202","#0c0a08","#1c1815","#332c26","#4c423a","#6d635c","#8f8280","#b8aca8"],
+  "Crystal":["#010101","#070a09","#121515","#252b29","#3d4242","#616868","#98a0a3","#d8ecc9"],
+  "Lava":["#040305","#0f0203","#1f0607","#3a0c09","#68120a","#a01c06","#e63b04","#ffb347"],
+  "Basalt":["#0b0f1a","#161d2e","#233045","#35465e","#4d6179","#6b8096","#93a6b8","#c3d0dc"],
+  "Ember":["#140b0a","#2a1410","#452016","#663322","#8f4c2b","#b8703a","#d99a58","#f2c98a"],
+  "Amethyst":["#0a0812","#171026","#271a3d","#3b2857","#553a74","#74569a","#9a7cbd","#c4a9dd"]
+};
+const STORE_KEY="cavegen.palettes.v1";
+/* name -> {colors:[#rrggbb], url?:string, imported:bool} */
+const PALETTES={};
+for(const k in BUILTIN) PALETTES[k]={colors:BUILTIN[k].slice(),imported:false};
+
+function loadStored(){
+  try{
+    const raw=localStorage.getItem(STORE_KEY); if(!raw) return;
+    const obj=JSON.parse(raw);
+    for(const k in obj) if(Array.isArray(obj[k].colors)&&obj[k].colors.length>1)
+      PALETTES[k]={colors:obj[k].colors.slice(),url:obj[k].url,imported:true};
+  }catch(e){/* private mode, blocked storage — fine */}
+}
+function saveStored(){
+  try{
+    const out={};
+    for(const k in PALETTES) if(PALETTES[k].imported) out[k]={colors:PALETTES[k].colors,url:PALETTES[k].url};
+    localStorage.setItem(STORE_KEY,JSON.stringify(out));
+  }catch(e){}
+}
+const hex2rgb=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
+const lum=c=>0.2126*c[0]+0.7152*c[1]+0.0722*c[2];
+
+/* accepts hex lists, "rrggbb" lines, GIMP .gpl, JASC .pal — anything with colours in it */
+function parseColors(text){
+  const out=[], seen={};
+  const push=h=>{h=h.toLowerCase(); if(!seen[h]){seen[h]=1; out.push(h);} };
+  const lines=text.split(/\r?\n/);
+  let gplRows=0;
+  for(const line of lines){
+    const m=line.match(/^\s*(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})\s*(?:[^\d].*)?$/);
+    if(m && +m[1]<256 && +m[2]<256 && +m[3]<256) gplRows++;
+  }
+  if(gplRows>=2 && !/#[0-9a-f]{6}/i.test(text)){
+    for(const line of lines){
+      const m=line.match(/^\s*(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})\s*(?:[^\d].*)?$/);
+      if(!m) continue;
+      const r=+m[1],g=+m[2],b=+m[3];
+      if(r>255||g>255||b>255) continue;
+      push("#"+[r,g,b].map(v=>v.toString(16).padStart(2,"0")).join(""));
+    }
+    return out;
+  }
+  const re=/\b([0-9a-fA-F]{6})\b|#([0-9a-fA-F]{3})\b/g;
+  let m;
+  while((m=re.exec(text))){
+    let h=m[1]||m[2];
+    if(h.length===3) h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+    push("#"+h);
+  }
+  return out;
+}
+
+/* the ramp the renderer actually indexes */
+let RAMP=[[0,0,0],[255,255,255]];
+function buildRamp(){
+  const p=PALETTES[palSel.value]||PALETTES["Slate blue"];
+  let cols=p.colors.map(hex2rgb);
+  if($("palSort").checked) cols=cols.slice().sort((a,b)=>lum(a)-lum(b));
+  if($("palInv").checked) cols.reverse();
+  RAMP=cols;
+}
+
+/* ===================== dom helpers ===================== */
+const $=id=>document.getElementById(id);
+const statusEl=$("status");
+let statusTimer=0;
+function say(msg,isErr){
+  statusEl.textContent=msg||"";
+  statusEl.classList.toggle("err",!!isErr);
+  clearTimeout(statusTimer);
+  if(msg) statusTimer=setTimeout(()=>{statusEl.textContent="";statusEl.classList.remove("err");},isErr?8000:3500);
+}
+function schedule(fn){
+  let q=false;
+  return ()=>{if(q)return;q=true;requestAnimationFrame(()=>{q=false;fn();});};
+}
+const MATSZ=[2,4,8];
+const FMT={
+  sApW:2,sApH:2,sConv:2,sRough:2,sFloor:2,
+  lNear:2,lFar:2,lRim:2,lDetail:2,lInt:2,lX:2,lY:2,
+  dStr:2,palGamma:2
+};
+function readoutText(el){
+  const v=+el.value;
+  if(el.id==="dMat"){ const n=MATSZ[v]; return n+"×"+n; }
+  if(el.id==="lRad") return Math.round(v*100)+"%";
+  if(el.id==="pxSize"||el.id==="zoom") return v+"×";
+  if(el.id==="sStalLen"||el.id==="sStagLen") return v+"px";
+  return FMT[el.id]!=null?v.toFixed(FMT[el.id]):String(v);
+}
+function syncReadout(el){
+  const out=el.parentElement.querySelector(".val");
+  if(out) out.textContent=readoutText(el);
+}
+function readouts(){
+  document.querySelectorAll('.ctl input[type=range]').forEach(el=>{
+    const upd=()=>syncReadout(el);
+    el.addEventListener("input",upd); upd();
+  });
+}
+/* Batch setter. Dispatching "input" here would queue a rebuild on top of the
+   one the caller does itself, so every preset/import/random rendered twice. */
+function setControl(id,v){
+  const el=$(id);
+  if(!el) return null;
+  el.value=v; syncReadout(el);
+  return el;
+}
+
+/* ===================== generation grid ===================== */
+const cv=$("cv"), ctx=cv.getContext("2d",{alpha:false});
+const buf=document.createElement("canvas");
+const bctx=buf.getContext("2d",{alpha:false});
+let SW=288, SH=162;            /* generator lattice */
+let PX=1;                      /* lattice cell size in canvas pixels */
+let OW=288, OH=162;            /* canvas pixels */
+let caveSeed=(Math.random()*1e6)|0;
+let PROFILE=null;
+
+function applySize(){
+  const w=clamp(Math.round(+$("cvW").value||288),16,1024);
+  const h=clamp(Math.round(+$("cvH").value||162),16,1024);
+  PX=+$("pxSize").value;
+  /* the canvas is exactly what was asked for; the lattice covers it, rounding up */
+  SW=Math.max(4,Math.ceil(w/PX)); SH=Math.max(4,Math.ceil(h/PX));
+  OW=w; OH=h;
+  buf.width=SW; buf.height=SH;
+  cv.width=OW; cv.height=OH;
+  applyZoom();
+  $("gridInfo").textContent=PX>1?("Generated on a "+SW+" × "+SH+" grid, drawn at "+OW+" × "+OH+".")
+                                :("One cell per pixel: "+SW+" × "+SH+".");
+  PROFILE=null;
+}
+
+function shapeParams(){
+  return {
+    layers:+$("sLayers").value, apW:+$("sApW").value, apH:+$("sApH").value,
+    conv:+$("sConv").value, rough:+$("sRough").value,
+    stalLen:+$("sStalLen").value, stalN:+$("sStalN").value,
+    stagLen:+$("sStagLen").value, floor:+$("sFloor").value
+  };
+}
+/* the look was authored against a 288×162 grid — keep every distance proportional */
+const vscale=()=>SH/162, hscale=()=>SW/288;
+
+function spikes(W,seed,count,maxLen,width){
+  const a=new Float32Array(W);
+  if(maxLen<=0||count<=0) return a;
+  for(let i=0;i<count;i++){
+    const sx=ihash(i,1,seed)*W;
+    const len=maxLen*(0.3+0.7*ihash(i,2,seed));
+    const wd=Math.max(1.4,width*(0.45+ihash(i,3,seed)));
+    const r=Math.ceil(wd)+1;
+    for(let x=Math.max(0,Math.floor(sx-r));x<Math.min(W,Math.ceil(sx+r));x++){
+      const k=Math.max(0,1-Math.abs(x-sx)/wd);
+      const v=len*Math.pow(k,1.8);
+      if(v>a[x]) a[x]=v;
+    }
+  }
+  return a;
+}
+
+/* Two-pass chamfer distance from every cell to this layer's aperture.
+   A horizontal-only distance leaves closed columns with one value for their
+   whole height, which reads as flat vertical walls; this is a real 2D field. */
+function distanceToAperture(open,top,bot){
+  const INF=1e9, D1=1, D2=1.4142135, d=new Float32Array(SW*SH);
+  for(let y=0;y<SH;y++){
+    const row=y*SW;
+    for(let x=0;x<SW;x++) d[row+x]=(open[x]&&y>top[x]&&y<bot[x])?0:INF;
+  }
+  for(let y=0;y<SH;y++) for(let x=0;x<SW;x++){
+    const i=y*SW+x; let v=d[i]; if(v===0) continue;
+    if(x>0&&d[i-1]+D1<v) v=d[i-1]+D1;
+    if(y>0){
+      if(d[i-SW]+D1<v) v=d[i-SW]+D1;
+      if(x>0&&d[i-SW-1]+D2<v) v=d[i-SW-1]+D2;
+      if(x<SW-1&&d[i-SW+1]+D2<v) v=d[i-SW+1]+D2;
+    }
+    d[i]=v;
+  }
+  for(let y=SH-1;y>=0;y--) for(let x=SW-1;x>=0;x--){
+    const i=y*SW+x; let v=d[i]; if(v===0) continue;
+    if(x<SW-1&&d[i+1]+D1<v) v=d[i+1]+D1;
+    if(y<SH-1){
+      if(d[i+SW]+D1<v) v=d[i+SW]+D1;
+      if(x<SW-1&&d[i+SW+1]+D2<v) v=d[i+SW+1]+D2;
+      if(x>0&&d[i+SW-1]+D2<v) v=d[i+SW-1]+D2;
+    }
+    d[i]=v;
+  }
+  return d;
+}
+
+function buildProfile(){
+  const p=shapeParams(), N=p.layers, out=[], vs=vscale(), hs=hscale();
+  for(let L=0;L<N;L++){
+    const t=N>1?L/(N-1):0;
+    const k=1-t*p.conv;
+    const jx=(ihash(L,3,caveSeed)-0.5), jy=(ihash(L,4,caveSeed)-0.5);
+    const cx=SW*(0.5+jx*0.10*(0.4+t));
+    const cy=SH*(0.50+jy*0.08*(0.4+t)+0.02*t);
+    const wob=0.88+0.24*ihash(L,6,caveSeed);
+    const kw=1-t*p.conv*0.45;
+    const w=SW*p.apW*0.5*kw*wob;
+    const hT=SH*p.apH*0.54*k*(1.06-0.12*ihash(L,8,caveSeed));
+    const hB=SH*p.apH*0.40*k;
+    const expo=2.1+1.1*ihash(L,12,caveSeed);
+    const fade=1-t*0.35;
+    const stal=spikes(SW,caveSeed+L*13+1,Math.round(p.stalN*(0.7+0.3*t)),p.stalLen*fade*vs,(2.6+2*ihash(L,9,caveSeed))*hs);
+    const stag=spikes(SW,caveSeed+L*29+7,Math.round(p.stalN*0.45),p.stagLen*fade*vs,3.4*hs);
+    const top=new Float32Array(SW), bot=new Float32Array(SW), open=new Uint8Array(SW);
+    for(let x=0;x<SW;x++){
+      const u=(x-cx)/w;
+      if(Math.abs(u)>=1) continue;
+      const au=Math.abs(u);
+      const s=Math.pow(Math.max(0,1-Math.pow(au,expo)),1/expo);
+      /* two frequencies, and much more displacement out near the side walls */
+      const swell=0.55+1.25*au*au;
+      const nT=(fbm(x/(32*hs),L*7.3,64,caveSeed+L*17,4,0.5,false)-0.5)*0.65
+              +(fbm(x/(11*hs),L*7.3+5,64,caveSeed+L*17+11,3,0.5,false)-0.5)*0.35;
+      const nB=(fbm(x/(27*hs),L*7.3+31,64,caveSeed+L*17+3,4,0.5,false)-0.5)*0.65
+              +(fbm(x/(9*hs),L*7.3+53,64,caveSeed+L*17+19,3,0.5,false)-0.5)*0.35;
+      const yt=cy-hT*s+nT*p.rough*SH*0.26*swell+stal[x];
+      /* the ground is a receding plane, not the bottom of an ellipse */
+      const ground=SH*(0.74-0.085*t)+nB*p.rough*SH*0.09;
+      const yb=Math.min(cy+hB*s+nB*p.rough*SH*0.20*swell, ground)-stag[x];
+      /* let the aperture close continuously instead of snapping shut at a threshold */
+      if(yb-yt<0.5) continue;
+      open[x]=1; top[x]=yt; bot[x]=yb;
+    }
+    out.push({top,bot,open,t,dist:distanceToAperture(open,top,bot)});
+  }
+  /* foreground ledge across the bottom */
+  const fl=new Float32Array(SW);
+  for(let x=0;x<SW;x++){
+    const n=(fbm(x/(30*hs),91,64,caveSeed+77,4,0.55,false)-0.5)*0.7
+           +(fbm(x/(8*hs),113,64,caveSeed+79,3,0.5,false)-0.5)*0.3;
+    fl[x]=SH-(p.floor*SH+n*SH*0.16);
+  }
+  PROFILE={layers:out,floorY:fl,N};
+}
+/* which layer owns this pixel; N means the deep void */
+function layerAt(x,y){
+  if(y>PROFILE.floorY[x]) return 0;
+  const ls=PROFILE.layers;
+  for(let L=0;L<ls.length;L++){
+    const l=ls[L];
+    if(!l.open[x]||y<=l.top[x]||y>=l.bot[x]) return L;
+  }
+  return ls.length;
+}
+function edgeDist(L,x,y){
+  if(L>=PROFILE.layers.length) return 0;
+  if(y>PROFILE.floorY[x]) return y-PROFILE.floorY[x];
+  return PROFILE.layers[L].dist[y*SW+x];
+}
+
+/* ===================== render ===================== */
+function ditherOffset(mode,B,bsz,x,y){
+  if(mode==="bayer") return (B[y%bsz][x%bsz]+0.5)/(bsz*bsz)-0.5;
+  if(mode==="noise") return ihash(x,y,caveSeed+999)-0.5;
+  if(mode==="checker") return ((x+y)&1)?0.25:-0.25;
+  return 0;
+}
+
+function render(){
+  if(!PROFILE) buildProfile();
+  const N=PROFILE.N, vs=vscale(), hs=hscale();
+  const view=$("view").value;
+  buildRamp();
+  const pal=RAMP, levels=pal.length, gamma=+$("palGamma").value;
+  const near=+$("lNear").value, far=+$("lFar").value, rim=+$("lRim").value,
+        det=+$("lDetail").value, lightMode=$("lMode").value,
+        inten=+$("lInt").value, rad=+$("lRad").value*SW,
+        lx=+$("lX").value*SW, ly=+$("lY").value*SH;
+  const dMode=$("dMode").value, bsz=MATSZ[+$("dMat").value], B=BAYER[bsz],
+        dith=+$("dStr").value;
+  const img=bctx.createImageData(SW,SH), d=img.data;
+
+  for(let y=0;y<SH;y++) for(let x=0;x<SW;x++){
+    const i=(y*SW+x)*4;
+    const L=layerAt(x,y);
+    if(view==="layers"){
+      const g=L>=N?240:Math.round(20+(L/Math.max(1,N))*150);
+      d[i]=g;d[i+1]=g;d[i+2]=g;d[i+3]=255; continue;
+    }
+    let v, t;
+    if(L>=N){
+      /* the deep void: the lightest thing in frame, with a slow haze drift */
+      t=1;
+      const curtain=(fbm(x/(11*hs),y/(24*vs),64,caveSeed+51,3,0.5,false)-0.5)*0.10
+                   +(fbm(x/(26*hs),y/(17*vs),64,caveSeed+57,3,0.5,false)-0.5)*0.05;
+      const sink=clamp((y-SH*0.55)/(SH*0.45),0,1)*0.16;
+      v=far+curtain-sink;
+    } else {
+      t=N>1?L/(N-1):0;
+      v=near+(far-near)*Math.pow(t,0.85);
+      const de=edgeDist(L,x,y);
+      v+=rim*0.34*Math.exp(-de/(2.6*vs))*(1-t*0.45);
+      const fade=1-t*0.55;
+      v+=(fbm(x/(10*hs),y/(10*vs),64,caveSeed+3,4,0.5,false)-0.5)*det*0.50*fade;
+      v+=(fbm(x/(46*hs),y/(9*vs),64,caveSeed+9,4,0.55,true)-0.5)*det*0.30*fade;
+      /* boulders along the foreground ledge */
+      if(y>PROFILE.floorY[x]-1){
+        const vr=voronoi(x/(11*hs),y/(8*vs),32,caveSeed+23);
+        v+=(vr.id-0.5)*0.10+clamp((vr.f2-vr.f1)*0.5,0,0.14)*0.7;
+      }
+      v*= (0.72+0.28*Math.exp(-de/(26*vs)));   /* interiors sink toward black */
+    }
+    /* local light */
+    if(lightMode!=="none"&&inten>0){
+      const dx=x-lx, dy=y-ly;
+      const dd=Math.sqrt(dx*dx+dy*dy);
+      let g=0;
+      if(lightMode==="pool"){
+        /* a molten band lying on the ground, not a glowing disc */
+        const poolY=ly+(fbm(x/(34*hs),7,64,caveSeed+88,3,0.5,false)-0.5)*14*vs
+                      +(fbm(x/(9*hs),19,64,caveSeed+89,3,0.5,false)-0.5)*6*vs;
+        const above=poolY-y;
+        if(L>=1&&above<0){
+          v=0.88+(fbm(x/(13*hs),y/(5*vs),64,caveSeed+91,3,0.5,false)-0.5)*0.18;
+          g=inten*0.15;
+        } else {
+          const dd2=Math.sqrt(dx*dx*0.30+Math.max(0,above)*Math.max(0,above));
+          g=inten/(1+Math.pow(dd2/rad,2.9));
+        }
+      } else {
+        g=inten/(1+(dd/rad)*(dd/rad)*2.2);
+        /* faceted cluster with a broken outline rather than a clean circle */
+        const core=rad*0.30;
+        const jag=0.70+0.60*fbm(x/(5.5*hs),y/(5.5*vs),64,caveSeed+44,3,0.55,false);
+        if(dd<core*jag){
+          const vr=voronoi((x-lx)/3.6,(y-ly)/3.6,32,caveSeed+41);
+          const shard=clamp(1-dd/(core*jag),0,1);
+          v=Math.max(v,0.48+shard*0.46*(0.45+vr.id*0.55)+clamp((vr.f2-vr.f1)*0.7,0,0.22));
+        }
+      }
+      v+=g*(1-t*0.3);
+    }
+    v=clamp(v,0,1);
+
+    if(view==="nopal"){
+      const g=(v*255)|0; d[i]=g;d[i+1]=g;d[i+2]=g;d[i+3]=255; continue;
+    }
+    /* ---- palette layer: curve, dither, quantise ---- */
+    if(gamma!==1) v=Math.pow(v,gamma);
+    let vv=v;
+    if(view!=="nodither"&&dMode!=="none"&&dith>0)
+      vv=clamp(v+ditherOffset(dMode,B,bsz,x,y)*dith/(levels-1),0,1);
+    const c=pal[clamp(Math.round(vv*(levels-1)),0,levels-1)];
+    d[i]=c[0];d[i+1]=c[1];d[i+2]=c[2];d[i+3]=255;
+  }
+  bctx.putImageData(img,0,0);
+  ctx.imageSmoothingEnabled=false;
+  ctx.clearRect(0,0,OW,OH);
+  ctx.drawImage(buf,0,0,SW,SH,0,0,SW*PX,SH*PX);   /* whole cells; overhang is clipped */
+}
+
+/* ===================== export ===================== */
+function exportCanvas(){
+  const sel=+$("expScale").value;
+  const w=sel===0?OW:SW*sel, h=sel===0?OH:SH*sel;
+  const k=sel===0?PX:sel;
+  const out=document.createElement("canvas");
+  out.width=w; out.height=h;
+  const o=out.getContext("2d");
+  o.imageSmoothingEnabled=false;
+  o.drawImage(buf,0,0,SW,SH,0,0,SW*k,SH*k);
+  return {canvas:out,w,h,name:"cavern_"+caveSeed+"_"+w+"x"+h+".png"};
+}
+/* blob rather than a data URL: itch serves the page in an iframe and big
+   data: hrefs are both slow and size-capped there */
+function withBlob(fn){
+  const e=exportCanvas();
+  const done=url=>{ fn(url,e); setTimeout(()=>URL.revokeObjectURL(url),60000); };
+  if(e.canvas.toBlob) e.canvas.toBlob(b=>{ if(b) done(URL.createObjectURL(b)); else fn(e.canvas.toDataURL("image/png"),e); },"image/png");
+  else fn(e.canvas.toDataURL("image/png"),e);
+}
+function savePNG(){
+  withBlob((url,e)=>{
+    const a=document.createElement("a");
+    a.download=e.name; a.href=url; a.rel="noopener";
+    document.body.appendChild(a); a.click(); a.remove();
+    say("Saved "+e.w+"×"+e.h+" — if nothing downloaded, use ↗");
+  });
+}
+function openPNG(){
+  withBlob((url,e)=>{
+    const win=window.open(url,"_blank","noopener");
+    if(!win) say("Pop-up blocked — allow pop-ups, or use Save PNG",true);
+    else say("Opened "+e.w+"×"+e.h+" — right-click to save");
+  });
+}
+
+/* ===================== palette ui ===================== */
+const palSel=$("palSel");
+function refreshPalSelect(keep){
+  const want=keep||palSel.value;
+  palSel.innerHTML="";
+  const names=Object.keys(PALETTES);
+  names.sort((a,b)=>(PALETTES[a].imported?1:0)-(PALETTES[b].imported?1:0)||a.localeCompare(b));
+  for(const k of names){
+    const o=document.createElement("option");
+    o.value=k; o.textContent=(PALETTES[k].imported?"★ ":"")+k+"  ("+PALETTES[k].colors.length+")";
+    palSel.appendChild(o);
+  }
+  palSel.value=PALETTES[want]?want:names[0];
+  paintSwatches();
+}
+function paintSwatches(){
+  const p=PALETTES[palSel.value]; if(!p) return;
+  buildRamp();
+  const sw=$("palSw"); sw.innerHTML="";
+  RAMP.forEach(c=>{
+    const i=document.createElement("i");
+    i.style.background="rgb("+c[0]+","+c[1]+","+c[2]+")";
+    sw.appendChild(i);
+  });
+  $("palInfo").textContent=p.colors.length+" colours"+(p.imported?" · imported":" · built-in");
+  const src=$("palSrc"); src.innerHTML="";
+  if(p.url){ const a=document.createElement("a"); a.href=p.url; a.target="_blank"; a.rel="noopener"; a.textContent="lospec ↗"; src.appendChild(a); }
+  $("bDelPal").disabled=!p.imported;
+}
+function addPalette(name,colors,url,announce){
+  let n=name.trim()||"Imported";
+  if(PALETTES[n]&&!PALETTES[n].imported) n=n+" (import)";
+  PALETTES[n]={colors,url,imported:true};
+  saveStored();
+  refreshPalSelect(n);
+  redraw();
+  if(announce!==false) say("Added “"+n+"” — "+colors.length+" colours");
+  return n;
+}
+
+function lospecSlug(s){
+  s=s.trim();
+  const m=s.match(/palette-list\/([^/?#.]+)/i);
+  if(m) return m[1];
+  return s.replace(/^.*\//,"").replace(/\.(json|hex|gpl|png|txt)$/i,"").trim();
+}
+async function importLospec(){
+  const slug=lospecSlug($("lospec").value);
+  if(!slug){ say("Enter a Lospec palette slug or URL",true); return; }
+  const btn=$("bLospec"); btn.disabled=true; say("Fetching “"+slug+"”…");
+  const page="https://lospec.com/palette-list/"+slug;
+  try{
+    const r=await fetch(page+".json",{mode:"cors",cache:"no-cache"});
+    if(!r.ok) throw new Error("HTTP "+r.status+(r.status===404?" — no such palette":""));
+    const j=await r.json();
+    const cols=(j.colors||[]).map(c=>"#"+String(c).replace(/^#/,"").toLowerCase());
+    if(cols.length<2) throw new Error("palette had no colours");
+    addPalette(j.name||slug,cols,page);
+    $("lospec").value="";
+  }catch(e){
+    say("Lospec fetch failed ("+e.message+") — open the palette page and paste its hex list below",true);
+    const src=$("palSrc"); src.innerHTML="";
+    const a=document.createElement("a"); a.href=page; a.target="_blank"; a.rel="noopener";
+    a.textContent="open "+slug+" ↗"; src.appendChild(a);
+  }finally{ btn.disabled=false; }
+}
+
+/* ===================== preview zoom, scroll and pan ===================== */
+const stagewrap=document.querySelector("main.stagewrap");
+
+function applyZoom(){
+  const z=+$("zoom").value;
+  cv.style.width=(OW*z)+"px";
+  const out=$("zoom").parentElement.parentElement.querySelector(".val");
+  if(out) out.textContent=z+"×";
+  updatePan();
+}
+/* largest whole zoom whose canvas still fits the pane; below 1:1 it gives up
+   and returns 1 so the pixels stay square and you pan instead */
+function fitZoom(){
+  const cs=getComputedStyle(stagewrap);
+  const padX=parseFloat(cs.paddingLeft)+parseFloat(cs.paddingRight);
+  const padY=parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom);
+  const w=stagewrap.clientWidth-padX, h=stagewrap.clientHeight-padY;
+  const z=Math.min(w/OW,h/OH);
+  return clamp(Math.floor(z),1,8);
+}
+function updatePan(){
+  const can=stagewrap.scrollWidth>stagewrap.clientWidth+1||
+            stagewrap.scrollHeight>stagewrap.clientHeight+1;
+  stagewrap.classList.toggle("canpan",can);
+  return can;
+}
+/* drag to pan; touch and trackpad keep the pane's native scrolling */
+let panId=null,panX=0,panY=0,panL=0,panT=0;
+stagewrap.addEventListener("pointerdown",e=>{
+  if(e.button!==0||e.pointerType!=="mouse") return;
+  /* the About button lives on this surface: starting a pan here would
+     preventDefault and capture the pointer, and its click would never fire */
+  if(e.target.closest("button,a,input,select,textarea,label,summary")) return;
+  if(!updatePan()) return;
+  panId=e.pointerId; panX=e.clientX; panY=e.clientY;
+  panL=stagewrap.scrollLeft; panT=stagewrap.scrollTop;
+  stagewrap.setPointerCapture(panId);
+  stagewrap.classList.add("grabbing");
+  e.preventDefault();
+});
+stagewrap.addEventListener("pointermove",e=>{
+  if(e.pointerId!==panId) return;
+  stagewrap.scrollLeft=panL-(e.clientX-panX);
+  stagewrap.scrollTop =panT-(e.clientY-panY);
+});
+function endPan(e){
+  if(panId===null||(e&&e.pointerId!==panId)) return;
+  try{ stagewrap.releasePointerCapture(panId); }catch(err){}
+  panId=null; stagewrap.classList.remove("grabbing");
+}
+stagewrap.addEventListener("pointerup",endPan);
+stagewrap.addEventListener("pointercancel",endPan);
+window.addEventListener("blur",()=>endPan());
+
+/* ctrl/⌘ + wheel zooms about the cursor; a plain wheel scrolls the pane */
+stagewrap.addEventListener("wheel",e=>{
+  if(!e.ctrlKey&&!e.metaKey) return;
+  e.preventDefault();
+  const el=$("zoom"), was=+el.value;
+  const now=clamp(was+(e.deltaY<0?1:-1),1,8);
+  if(now===was) return;
+  const r=stagewrap.getBoundingClientRect();
+  const ax=e.clientX-r.left, ay=e.clientY-r.top;
+  const cx=stagewrap.scrollLeft+ax, cy=stagewrap.scrollTop+ay;
+  el.value=now; applyZoom();
+  const k=now/was;
+  stagewrap.scrollLeft=cx*k-ax;
+  stagewrap.scrollTop =cy*k-ay;
+},{passive:false});
+
+addEventListener("resize",()=>updatePan());
+
+/* ===================== parameters as JSON ===================== */
+/* element ids are an implementation detail; the file uses stable names */
+const PARAM_MAP={
+  "view":"view",
+  "canvas.width":"cvW","canvas.height":"cvH","canvas.pixelSize":"pxSize",
+  "palette.rampCurve":"palGamma",
+  "dither.mode":"dMode","dither.matrix":"dMat","dither.strength":"dStr",
+  "shape.layers":"sLayers","shape.archWidth":"sApW","shape.archHeight":"sApH",
+  "shape.convergence":"sConv","shape.roughness":"sRough",
+  "shape.stalactiteLength":"sStalLen","shape.stalactiteDensity":"sStalN",
+  "shape.stalagmiteLength":"sStagLen","shape.floor":"sFloor",
+  "light.nearDarkness":"lNear","light.farHaze":"lFar","light.rim":"lRim",
+  "light.detail":"lDetail","light.source":"lMode","light.intensity":"lInt",
+  "light.radius":"lRad","light.x":"lX","light.y":"lY"
+};
+const getPath=(o,path)=>path.split(".").reduce((a,k)=>(a==null?a:a[k]),o);
+function setPath(o,path,v){
+  const k=path.split(".");
+  let cur=o;
+  for(let i=0;i<k.length-1;i++) cur=cur[k[i]]||(cur[k[i]]={});
+  cur[k[k.length-1]]=v;
+}
+function collectParams(){
+  const pal=PALETTES[palSel.value];
+  const o={
+    tool:"cavegen", version:1, seed:caveSeed,
+    canvas:{}, palette:{
+      name:palSel.value,
+      colors:pal?pal.colors.slice():[],
+      sortByLuminance:$("palSort").checked,
+      invert:$("palInv").checked
+    },
+    dither:{}, shape:{}, light:{}
+  };
+  if(pal&&pal.url) o.palette.source=pal.url;
+  for(const path in PARAM_MAP){
+    const el=$(PARAM_MAP[path]);
+    let v=el.tagName==="SELECT"?el.value:+el.value;
+    if(path==="dither.matrix") v=MATSZ[+el.value];
+    setPath(o,path,v);
+  }
+  return o;
+}
+function applyParams(o){
+  if(!o||typeof o!=="object"||Array.isArray(o)) throw new Error("not a parameter object");
+  if(o.tool&&o.tool!=="cavegen") throw new Error("not a CAVE/GEN file");
+  const P=o.palette||{};
+  if(Array.isArray(P.colors)&&P.colors.length>1){
+    const cols=P.colors.map(c=>"#"+String(c).replace(/^#/,"").toLowerCase()).filter(c=>/^#[0-9a-f]{6}$/.test(c));
+    const name=P.name||"Imported";
+    if(cols.length>1){
+      if(!PALETTES[name]||PALETTES[name].colors.join()!==cols.join()) addPalette(name,cols,P.source,false);
+      else refreshPalSelect(name);
+    }
+  } else if(P.name&&PALETTES[P.name]){ palSel.value=P.name; }
+  if(typeof P.sortByLuminance==="boolean") $("palSort").checked=P.sortByLuminance;
+  if(typeof P.invert==="boolean") $("palInv").checked=P.invert;
+  for(const path in PARAM_MAP){
+    let v=getPath(o,path);
+    if(v===undefined||v===null) continue;
+    const el=$(PARAM_MAP[path]);
+    if(path==="dither.matrix"){ const i=MATSZ.indexOf(+v); if(i<0) continue; v=i; }
+    if(el.tagName!=="SELECT"&&!Number.isFinite(+v)) continue;
+    if(el.tagName==="SELECT"&&![...el.options].some(op=>op.value===String(v))) continue;
+    el.value=v; syncReadout(el);
+  }
+  if(Number.isFinite(+o.seed)){ caveSeed=(+o.seed)|0; $("seed").value=caveSeed; }
+  applySize(); applyZoom(); paintSwatches(); buildProfile(); render();
+}
+function paramsText(){ return JSON.stringify(collectParams(),null,2); }
+function loadParamsText(txt,label){
+  let o;
+  try{ o=JSON.parse(txt); }catch(e){ say("That is not valid JSON",true); return false; }
+  try{ applyParams(o); }catch(e){ say("Could not load parameters — "+e.message,true); return false; }
+  say("Loaded parameters"+(label?" from "+label:""));
+  return true;
+}
+$("bParamSave").addEventListener("click",()=>{
+  const blob=new Blob([paramsText()],{type:"application/json"});
+  const url=URL.createObjectURL(blob), a=document.createElement("a");
+  a.download="cavegen_"+caveSeed+".json"; a.href=url; a.rel="noopener";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
+  say("Saved cavegen_"+caveSeed+".json");
+});
+$("bParamLoad").addEventListener("click",()=>$("paramFile").click());
+$("paramFile").addEventListener("change",e=>{
+  const f=e.target.files&&e.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>loadParamsText(String(rd.result),f.name);
+  rd.readAsText(f);
+  e.target.value="";
+});
+$("bParamCopy").addEventListener("click",async()=>{
+  const txt=paramsText();
+  try{
+    await navigator.clipboard.writeText(txt);
+    say("Parameters copied to the clipboard");
+  }catch(err){
+    say("Clipboard blocked here — use Export JSON instead",true);
+  }
+});
+$("bParamReset").addEventListener("click",()=>{
+  bootDefaults();
+  say("Back to defaults");
+});
+
+/* ===================== collapsible groups ===================== */
+const GROUP_KEY="cavegen.groups.v1";
+function initGroups(){
+  let st={};
+  try{ st=JSON.parse(localStorage.getItem(GROUP_KEY)||"{}"); }catch(e){}
+  document.querySelectorAll("details.group").forEach(g=>{
+    if(st[g.id]!==undefined) g.open=!!st[g.id];
+    g.addEventListener("toggle",()=>{
+      try{
+        const cur=JSON.parse(localStorage.getItem(GROUP_KEY)||"{}");
+        cur[g.id]=g.open;
+        localStorage.setItem(GROUP_KEY,JSON.stringify(cur));
+      }catch(e){}
+    });
+  });
+}
+
+/* ===================== about ===================== */
+const aboutDlg=$("about");
+function showAbout(){
+  if(aboutDlg.open) return;
+  if(aboutDlg.showModal) aboutDlg.showModal(); else aboutDlg.setAttribute("open","");
+}
+function hideAbout(){ if(aboutDlg.close) aboutDlg.close(); else aboutDlg.removeAttribute("open"); }
+$("bAbout").addEventListener("click",showAbout);
+$("bAboutClose").addEventListener("click",hideAbout);
+/* click the backdrop to dismiss */
+aboutDlg.addEventListener("click",e=>{ if(e.target===aboutDlg) hideAbout(); });
+
+/* ===================== tabs ===================== */
+const TABS=["look","shape","light","canvas"];
+function showTab(name){
+  if(TABS.indexOf(name)<0) return;
+  TABS.forEach(t=>{
+    $("pane-"+t).classList.toggle("on",t===name);
+    $("tb-"+t).setAttribute("aria-selected",t===name?"true":"false");
+  });
+}
+document.querySelectorAll(".tab").forEach(b=>
+  b.addEventListener("click",()=>showTab(b.dataset.tab)));
+
+/* ===================== wiring ===================== */
+const redraw=schedule(render);
+const rebuild=schedule(()=>{ buildProfile(); render(); });
+const resize=schedule(()=>{ applySize(); buildProfile(); render(); });
+
+const SHAPE_IDS=["sLayers","sApW","sApH","sConv","sRough","sStalLen","sStalN","sStagLen","sFloor"];
+const LOOK_IDS=["view","lNear","lFar","lRim","lDetail","lMode","lInt","lRad","lX","lY",
+                "dMode","dMat","dStr","palGamma"];
+const SIZE_IDS=["cvW","cvH","pxSize"];
+
+SHAPE_IDS.forEach(id=>$(id).addEventListener("input",rebuild));
+LOOK_IDS.forEach(id=>{ $(id).addEventListener("input",redraw); $(id).addEventListener("change",redraw); });
+SIZE_IDS.forEach(id=>{ $(id).addEventListener("input",resize); $(id).addEventListener("change",resize); });
+["palSel","palSort","palInv"].forEach(id=>$(id).addEventListener("change",()=>{paintSwatches();redraw();}));
+$("zoom").addEventListener("input",()=>applyZoom());
+$("bFit").addEventListener("click",()=>{ $("zoom").value=fitZoom(); applyZoom(); });
+
+document.querySelectorAll("#sizePresets button").forEach(b=>{
+  b.addEventListener("click",()=>{
+    const [w,h]=b.dataset.size.split("x");
+    $("cvW").value=w; $("cvH").value=h; resize();
+  });
+});
+
+function newSeed(v){
+  caveSeed=v==null?(Math.random()*1e6)|0:(v|0);
+  $("seed").value=caveSeed;
+  rebuild();
+}
+$("bNew").addEventListener("click",()=>newSeed());
+$("bSeed").addEventListener("click",()=>newSeed());
+$("seed").addEventListener("change",()=>newSeed(+$("seed").value||0));
+$("bPng").addEventListener("click",savePNG);
+$("bOpen").addEventListener("click",openPNG);
+$("bLospec").addEventListener("click",importLospec);
+$("lospec").addEventListener("keydown",e=>{ if(e.key==="Enter"){e.preventDefault();importLospec();} });
+
+$("bPaste").addEventListener("click",()=>{
+  const cols=parseColors($("palPaste").value);
+  if(cols.length<2){ say("Found no colours in that text",true); return; }
+  addPalette($("palName").value||"Pasted "+cols.length,cols);
+  $("palPaste").value=""; $("palName").value="";
+});
+$("bDelPal").addEventListener("click",()=>{
+  const n=palSel.value;
+  if(!PALETTES[n]||!PALETTES[n].imported) return;
+  delete PALETTES[n]; saveStored(); refreshPalSelect(); redraw();
+  say("Removed “"+n+"”");
+});
+
+/* drop a .hex / .gpl / .txt anywhere on the page */
+["dragover","drop"].forEach(ev=>document.addEventListener(ev,e=>e.preventDefault()));
+document.addEventListener("drop",e=>{
+  const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
+  if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    const txt=String(rd.result);
+    if(/\.json$/i.test(f.name)||/^\s*\{/.test(txt)){ loadParamsText(txt,f.name); return; }
+    const cols=parseColors(txt);
+    if(cols.length<2){ say("No colours found in "+f.name,true); return; }
+    showTab("look");
+    addPalette(f.name.replace(/\.[^.]+$/,""),cols);
+  };
+  rd.readAsText(f);
+});
+
+/* presets matched to the reference paintings */
+const PRESETS={
+  blue:{palSel:"Slate blue",lNear:0.03,lFar:0.72,lRim:0.40,lDetail:0.30,lMode:"none",
+        lInt:0,dStr:0.9,sLayers:6,sApW:0.94,sApH:0.90,sConv:0.44,sRough:0.85,
+        sStalLen:24,sStalN:22,sStagLen:12,sFloor:0.09},
+  brown:{palSel:"Umber",lNear:0.02,lFar:0.62,lRim:0.36,lDetail:0.24,lMode:"none",
+        lInt:0,dStr:0.7,sLayers:4,sApW:0.82,sApH:0.78,sConv:0.46,sRough:0.66,
+        sStalLen:20,sStalN:14,sStagLen:16,sFloor:0.07},
+  crystal:{palSel:"Crystal",lNear:0.01,lFar:0.34,lRim:0.30,lDetail:0.40,lMode:"crystal",
+        lInt:0.9,lRad:0.22,lX:0.47,lY:0.52,dStr:0.85,sLayers:4,sApW:0.70,sApH:0.66,
+        sConv:0.40,sRough:1.05,sStalLen:14,sStalN:18,sStagLen:8,sFloor:0.05},
+  lava:{palSel:"Lava",lNear:0.02,lFar:0.30,lRim:0.35,lDetail:0.45,lMode:"pool",
+        lInt:0.85,lRad:0.15,lX:0.42,lY:0.80,dStr:1.0,sLayers:3,sApW:0.98,sApH:0.9,
+        sConv:0.22,sRough:1.2,sStalLen:12,sStalN:10,sStagLen:6,sFloor:0.20}
+};
+function applyPreset(key){
+  const P=PRESETS[key]; if(!P) return;
+  for(const k in P){
+    if(k==="palSel"&&!PALETTES[P[k]]) continue;
+    setControl(k,P[k]);
+  }
+  paintSwatches();
+  buildProfile(); render();
+}
+document.querySelectorAll("[data-preset]").forEach(b=>
+  b.addEventListener("click",()=>applyPreset(b.dataset.preset)));
+
+/* Ranges are deliberately narrower than the sliders allow: the point is a cave
+   worth looking at, not a uniform sample of the parameter space. */
+function randomise(){
+  const R=(a,b,dp)=>+(a+Math.random()*(b-a)).toFixed(dp);
+  const I=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+  const P=a=>a[Math.floor(Math.random()*a.length)];
+  const set=setControl;
+
+  caveSeed=(Math.random()*1e6)|0; $("seed").value=caveSeed;
+
+  /* shape */
+  set("sLayers",I(3,7));
+  set("sApW",R(0.62,1.12,2));
+  set("sApH",R(0.56,1.04,2));
+  set("sConv",R(0.14,0.58,2));
+  set("sRough",R(0.45,1.30,2));
+  const toothy=Math.random()<0.75;
+  set("sStalLen",toothy?I(8,32):I(0,8));
+  set("sStalN",  toothy?I(8,30):I(0,10));
+  set("sStagLen",I(0,22));
+  set("sFloor",R(0.03,0.20,2));
+
+  /* light */
+  const src=P(["none","none","crystal","crystal","pool"]);
+  set("lMode",src);
+  /* with no lamp the void carries the whole frame, so it has to stay bright */
+  set("lFar",  src==="none"?R(0.55,0.88,2):R(0.26,0.62,2));
+  set("lNear", R(0,0.07,2));
+  set("lRim",  R(0.22,0.70,2));
+  set("lDetail",R(0.15,0.60,2));
+  set("lInt",  src==="none"?0:R(0.55,1.20,2));
+  set("lRad",  src==="pool"?R(0.08,0.20,3):R(0.12,0.34,3));
+  set("lX",    R(0.28,0.72,2));
+  set("lY",    src==="pool"?R(0.66,0.88,2):R(0.38,0.68,2));   /* a pool lies on the ground */
+
+  /* dither: the style shifts, the strength stays gentle */
+  const mode=P(["bayer","bayer","noise","checker"]);
+  set("dMode",mode);
+  if(mode==="bayer") set("dMat",I(0,2));   /* the matrix only feeds the ordered mode */
+  set("dStr",R(0,0.85,2));
+
+  /* palette — built-in or imported, whatever is loaded */
+  const names=Object.keys(PALETTES);
+  if(names.length){ palSel.value=P(names); paintSwatches(); }
+
+  buildProfile(); render();
+  say("Random · seed "+caveSeed+" · "+palSel.value);
+}
+$("bRandom").addEventListener("click",randomise);
+
+document.addEventListener("keydown",e=>{
+  if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)||e.metaKey||e.ctrlKey||e.altKey) return;
+  if(aboutDlg.open){ if(e.key==="i"||e.key==="I") hideAbout(); return; }
+  if(e.key==="Tab"){
+    e.preventDefault();
+    const cur=TABS.findIndex(t=>$("pane-"+t).classList.contains("on"));
+    showTab(TABS[(cur+(e.shiftKey?TABS.length-1:1))%TABS.length]);
+    return;
+  }
+  const k=e.key.toLowerCase();
+  if(k==="i"){ aboutDlg.open?hideAbout():showAbout(); }
+  else if(k==="r"){ newSeed(); }
+  else if(k==="s"){ savePNG(); }
+  else if("1234".includes(k)){ showTab("look"); applyPreset(["blue","brown","crystal","lava"][+k-1]); }
+  else if(k==="5"){ showTab("look"); randomise(); }
+});
+
+/* ===================== boot ===================== */
+/* Firefox and friends restore form values across a reload, which would quietly
+   override the defaults in the markup. Start from what the HTML declares. */
+function resetToMarkupDefaults(){
+  document.querySelectorAll(".rail input, .rail select").forEach(el=>{
+    if(el.type==="checkbox"||el.type==="radio") el.checked=el.defaultChecked;
+    else if(el.tagName==="SELECT"){
+      const d=[...el.options].find(o=>o.defaultSelected);
+      if(d) el.value=d.value;
+    }
+    else if(el.type==="range"||el.type==="number") el.value=el.defaultValue;
+  });
+}
+resetToMarkupDefaults();
+loadStored();
+initGroups();
+refreshPalSelect("Slate blue");
+readouts();
+$("seed").value=caveSeed;
+function bootDefaults(){
+  resetToMarkupDefaults();
+  $("seed").value=caveSeed;
+  applySize();
+  $("zoom").value=Math.min(+$("zoom").value,fitZoom());
+  applyZoom();
+  applyPreset("crystal");   /* also builds the profile and renders */
+}
+const controlsSignature=()=>[...document.querySelectorAll(".rail input, .rail select")]
+  .map(el=>el.id+"="+(el.type==="checkbox"?el.checked:el.value)).join("|");
+
+bootDefaults();
+let BOOT_SIG=controlsSignature();
+/* restoration can also land after this script has run, which would leave stale
+   numbers in the boxes while the canvas shows the defaults. Catch that too. */
+addEventListener("pageshow",e=>{
+  if(e.persisted||controlsSignature()===BOOT_SIG) return;
+  bootDefaults();
+  BOOT_SIG=controlsSignature();
+});
+</script>
+</body>
+</html>
