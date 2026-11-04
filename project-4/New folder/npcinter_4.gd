@@ -2,7 +2,7 @@ extends Area2D
 
 @export_multiline var dialog: Array[String] = [
 	"Congrats, you made it",
-	"Going trough this portal will take you to the dragon",
+	"this portal will take you to the dragon",
 	"go save the Princess",
 	"Good Luck!"
 	]

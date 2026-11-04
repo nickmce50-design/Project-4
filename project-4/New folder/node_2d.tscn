@@ -44,6 +44,7 @@
 [ext_resource type="Script" uid="uid://c3ay5fwcv5lt7" path="res://New folder/deathtoboss.gd" id="42_at67f"]
 [ext_resource type="Script" uid="uid://u4md7te4sy8k" path="res://New folder/beatboss.gd" id="43_4fvkv"]
 [ext_resource type="Texture2D" uid="uid://baubbalchdvip" path="res://Basic Asset Pack/Basic Dragon Sprites/Basic Dragon 4x.png" id="44_at67f"]
+[ext_resource type="Script" uid="uid://w5q67fy44glh" path="res://New folder/princess.gd" id="45_4fvkv"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_4d7sh"]
 texture = ExtResource("2_rj586")
@@ -523,7 +524,7 @@ atlas = ExtResource("8_isshd")
 region = Rect2(139.14114, 35.975487, 21.48767, 22.314102)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_bbkf2"]
-size = Vector2(3933, 34)
+size = Vector2(2939.5, 34)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3xutc"]
 size = Vector2(341.625, 42.0625)
@@ -552,7 +553,7 @@ size = Vector2(38, 77)
 [sub_resource type="CircleShape2D" id="CircleShape2D_v5q7w"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_mbl15"]
-size = Vector2(377.0503, 171.61877)
+size = Vector2(689.3557, 79.91203)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_66la1"]
 size = Vector2(2.7158203, 439.9872)
@@ -1251,7 +1252,7 @@ offset_bottom = 1.0
 position = Vector2(6274, 304)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Lv 3 floor" unique_id=1852425029]
-position = Vector2(1956, -1)
+position = Vector2(1459.25, -1)
 shape = SubResource("RectangleShape2D_bbkf2")
 
 [node name="CollisionShape2D2" type="CollisionShape2D" parent="Lv 3 floor" unique_id=1574748532]
@@ -1342,8 +1343,8 @@ scale = Vector2(1.1046886, 0.4034602)
 script = ExtResource("42_at67f")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="DEATHTOBOSS" unique_id=2101490170]
-position = Vector2(37.782715, -370.84357)
-scale = Vector2(1, 0.99999964)
+position = Vector2(193.93555, -416.6969)
+scale = Vector2(1, 0.9999996)
 shape = SubResource("RectangleShape2D_mbl15")
 
 [node name="BEATBOSS" type="Area2D" parent="." unique_id=286352020]
@@ -1369,6 +1370,27 @@ position = Vector2(106.36496, 12.392813)
 scale = Vector2(2.9010322, 6.7734313)
 texture = SubResource("AtlasTexture_4e27k")
 flip_h = true
+
+[node name="Princess" type="Area2D" parent="." unique_id=742327896]
+position = Vector2(7390.3755, 255.25949)
+scale = Vector2(1.1046886, 0.4034602)
+script = ExtResource("45_4fvkv")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Princess" unique_id=1447779315]
+position = Vector2(290, 187)
+shape = SubResource("RectangleShape2D_gt42f")
+
+[node name="Sprite2D" type="Sprite2D" parent="Princess/CollisionShape2D" unique_id=1933188150]
+position = Vector2(9.375, 4.374995)
+scale = Vector2(1.6547619, 1.7613641)
+texture = SubResource("AtlasTexture_c601w")
+flip_h = true
+
+[node name="Label" type="Label" parent="Princess" unique_id=277622731]
+offset_left = 27.0
+offset_top = 67.0
+offset_right = 334.0
+offset_bottom = 142.0
 
 [connection signal="body_entered" from="MS1" to="MS1" method="_on_body_entered"]
 [connection signal="body_exited" from="MS1" to="MS1" method="_on_body_exited"]
@@ -1398,4 +1420,7 @@ flip_h = true
 [connection signal="body_entered" from="LV3 Portal" to="LV3 Portal" method="_on_body_entered"]
 [connection signal="body_entered" from="key3" to="key3" method="_on_body_entered"]
 [connection signal="body_entered" from="key4" to="key4" method="_on_body_entered"]
+[connection signal="body_entered" from="DEATHTOBOSS" to="DEATHTOBOSS" method="_on_body_entered"]
 [connection signal="body_entered" from="BEATBOSS" to="BEATBOSS" method="_on_body_entered"]
+[connection signal="body_entered" from="Princess" to="Princess" method="_on_body_entered"]
+[connection signal="body_exited" from="Princess" to="Princess" method="_on_body_exited"]
