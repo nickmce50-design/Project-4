@@ -3,7 +3,7 @@ extends Area2D
 @export_multiline var dialog: Array[String] = [
 	"Hey",
 	"almost there",
-	"Grab the key to and go through the portal to get to the next level",
+	"Go through the Blue Portal",
 	"Hurry!!!"
 	]
 
