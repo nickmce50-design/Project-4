@@ -25,3 +25,6 @@ Known Issues:
 Game Design Document - https://coastal54-my.sharepoint.com/:w:/g/personal/nlmcentee_coastal_edu/IQA7oDZce-OeTawa3lFLFsYDAV8ZpzWAz06lb6a-P-gR8Wg
 PowerPoint Slides - https://coastal54-my.sharepoint.com/:p:/g/personal/nlmcentee_coastal_edu/IQDnrdUTY7kATbYyn8gG3zZjAbZzn3vlM0KcHOj4mw21ClE
 
+
+- I have added 2 pdf's of the documents and slides, as well as the game demo
+
